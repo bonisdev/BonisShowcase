@@ -1,9 +1,231 @@
-<html>
-    <head>
-        <title>Projects 2021 - 2025</title>
-    </head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web GPU and Cryptography Projects</title>
+    <style>
+        body {
+            background: linear-gradient(to bottom, #333, #000);
+            color: white;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
 
-    <body>
-        <p>Best products</p>
-    </body>
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .stars::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+
+        .stars1::before {
+            background-image: radial-gradient(white, white 1px, transparent 1px);
+            background-size: 50px 50px;
+            background-position: 0 0;
+            animation: twinkle1 10s infinite;
+        }
+
+        .stars2::before {
+            background-image: radial-gradient(white, white 2px, transparent 2px);
+            background-size: 30px 30px;
+            background-position: 15px 15px;
+            animation: twinkle2 15s infinite;
+        }
+
+        .stars3::before {
+            background-image: radial-gradient(white, white 1.5px, transparent 1.5px);
+            background-size: 40px 40px;
+            background-position: 25px 25px;
+            animation: twinkle3 12s infinite;
+        }
+
+        @keyframes twinkle1 {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        @keyframes twinkle2 {
+            0% { opacity: 0.3; }
+            40% { opacity: 0.8; }
+            100% { opacity: 0.3; }
+        }
+
+        @keyframes twinkle3 {
+            0% { opacity: 0.4; }
+            60% { opacity: 0.9; }
+            100% { opacity: 0.4; }
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px 20px 20px; /* Increased top padding for more headspace */
+        }
+
+        h1 {
+            font-size: 2.5em;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .grid-item {
+            position: relative;
+            width: 100%;
+            padding-top: 100%; /* Maintains square aspect ratio */
+            background-size: cover;
+            background-position: center;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .grid-item:hover {
+            transform: scale(1.05);
+        }
+
+        .grid-item::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(to bottom right, transparent, rgba(255,255,255,0.2), transparent);
+            transform: rotate(45deg);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .grid-item:hover::before {
+            opacity: 1;
+            animation: shimmer 1s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            user-select: none;
+        }
+
+        .grid-item:hover .overlay {
+            opacity: 1;
+        }
+
+        .overlay h3 {
+            font-size: 1.5em;
+            margin: 0;
+        }
+
+        .overlay p {
+            font-size: 1em;
+            margin: 10px 0 0;
+        }
+
+        a.grid-item {
+            text-decoration: none;
+            color: inherit;
+        }
+    </style>
+</head>
+<body>
+    <div class="stars stars1"></div>
+    <div class="stars stars2"></div>
+    <div class="stars stars3"></div>
+    <header>
+        <h1>Web GPU and Cryptography Projects</h1>
+    </header>
+    <main>
+        <div class="grid-container">
+            
+            <a href="https://fishex.net/" class="grid-item" style="background-image: url('gifs/secfishdure3.gif');">
+                <div class="overlay">
+                    <h3>Fishex</h3>
+                    <p>The premiere fish experience using Web GPU</p>
+                </div>
+            </a>
+
+            <a href="https://bonisdev.github.io/EzWebGPU/" class="grid-item" style="background-image: url('gifs/ezwebgpui.gif');">
+                <div class="overlay">
+                    <h3>EzWebGPU.js</h3>
+                    <p>Useful library of functions for setting up complex cellular automata simulations</p>
+                </div>
+            </a>
+            <a href="https://github.com/bonisdev/NeedfulSecures" class="grid-item" style="background-image: url('gifs/secure3.gif');">
+                <div class="overlay">
+                    <h3>Needful Secures</h3>
+                    <p>Open source secure communications server without using HTTPS</p>
+                </div>
+            </a>
+            <a href="https://store.steampowered.com/app/1910950/Stimmings" class="grid-item" style="background-image: url('gifs/stimmings2333gif.gif');">
+                <div class="overlay">
+                    <h3>Stimmings</h3>
+                    <p>A RTS rougelike game available for purchase on Steam</p>
+                </div>
+            </a>
+            <a href="https://www.stimmin.gs/" class="grid-item" style="background-image: url('gifs/stimmings23334ss4gif.gif');">
+                <div class="overlay">
+                    <h3>Stimmings 2</h3>
+                    <p>Web GPU based sequel for free in the browser</p>
+                </div>
+            </a>
+            <a href="#" class="grid-item" style="background-image: url('gif6.gif');">
+                <div class="overlay">
+                    <h3>Digital Neuron</h3>
+                    <p>Searching numbers to find a novel ML algorithm</p>
+                </div>
+            </a>
+            <a href="#" class="grid-item" style="background-image: url('gif7.gif');">
+                <div class="overlay">
+                    <h3>Project 7</h3>
+                    <p>Interactive hash function demo.</p>
+                </div>
+            </a>
+            <a href="#" class="grid-item" style="background-image: url('gif8.gif');">
+                <div class="overlay">
+                    <h3>Project 8</h3>
+                    <p>Web GPU cryptography benchmark.</p>
+                </div>
+            </a>
+        </div>
+    </main>
+</body>
 </html>
