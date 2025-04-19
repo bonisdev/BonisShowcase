@@ -3,94 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web GPU and Cryptography Projects</title>
+    <title>Bonis Projects</title>
     <style>
         body {
-            background: linear-gradient(to bottom, #333, #000);
+            background: linear-gradient(to bottom, #000022, #000000);
             color: white;
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
         }
 
-        .stars {
+        .starfield {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: -1;
+            overflow: hidden;
         }
 
-        .stars::before {
-            content: '';
+        .star {
             position: absolute;
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: transparent;
+            background: white;
+            animation: fall var(--fall-duration) linear infinite, twinkle 2s ease-in-out infinite;
+            animation-delay: var(--fall-delay), var(--twinkle-delay);
         }
 
-        .stars1::before {
-            background-image: radial-gradient(white, white 1px, transparent 1px);
-            background-size: 50px 50px;
-            background-position: 0 0;
-            animation: twinkle1 10s infinite;
+        @keyframes fall {
+            0% { transform: translateY(-100vh); }
+            100% { transform: translateY(100vh); }
         }
 
-        .stars2::before {
-            background-image: radial-gradient(white, white 2px, transparent 2px);
-            background-size: 30px 30px;
-            background-position: 15px 15px;
-            animation: twinkle2 15s infinite;
-        }
-
-        .stars3::before {
-            background-image: radial-gradient(white, white 1.5px, transparent 1.5px);
-            background-size: 40px 40px;
-            background-position: 25px 25px;
-            animation: twinkle3 12s infinite;
-        }
-
-        @keyframes twinkle1 {
+        @keyframes twinkle {
             0% { opacity: 0.5; }
             50% { opacity: 1; }
             100% { opacity: 0.5; }
         }
 
-        @keyframes twinkle2 {
-            0% { opacity: 0.3; }
-            40% { opacity: 0.8; }
-            100% { opacity: 0.3; }
-        }
-
-        @keyframes twinkle3 {
-            0% { opacity: 0.4; }
-            60% { opacity: 0.9; }
-            100% { opacity: 0.4; }
-        }
-
         header {
             text-align: center;
-            padding: 40px 20px 20px 20px; /* Increased top padding for more headspace */
+            padding: 60px 20px 20px 20px;
+            flex-shrink: 0;
         }
 
         h1 {
             font-size: 2.5em;
+            margin: 0;
+        }
+
+        main {
+            flex-grow: 1;
+            padding: 0 20px 20px 20px;
         }
 
         .grid-container {
+            height: 100%;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
-            padding: 20px;
+            align-content: space-between;
         }
 
         .grid-item {
             position: relative;
             width: 100%;
-            padding-top: 100%; /* Maintains square aspect ratio */
+            padding-top: 100%;
             background-size: cover;
             background-position: center;
             border-radius: 10px;
@@ -167,22 +149,20 @@
     </style>
 </head>
 <body>
-    <div class="stars stars1"></div>
-    <div class="stars stars2"></div>
-    <div class="stars stars3"></div>
+    <div class="starfield"></div>
     <header>
-        <h1>Web GPU and Cryptography Projects</h1>
+        <h1>Bonis Projects Showcase</h1>
+        <br>
+        <br>
     </header>
     <main>
         <div class="grid-container">
-            
             <a href="https://fishex.net/" class="grid-item" style="background-image: url('gifs/secfishdure3.gif');">
                 <div class="overlay">
                     <h3>Fishex</h3>
                     <p>The premiere fish experience using Web GPU</p>
                 </div>
             </a>
-
             <a href="https://bonisdev.github.io/EzWebGPU/" class="grid-item" style="background-image: url('gifs/ezwebgpui.gif');">
                 <div class="overlay">
                     <h3>EzWebGPU.js</h3>
@@ -198,34 +178,50 @@
             <a href="https://store.steampowered.com/app/1910950/Stimmings" class="grid-item" style="background-image: url('gifs/stimmings2333gif.gif');">
                 <div class="overlay">
                     <h3>Stimmings</h3>
-                    <p>A RTS rougelike game available for purchase on Steam</p>
+                    <p>An RTS rougelike game available for purchase on Steam</p>
                 </div>
             </a>
             <a href="https://www.stimmin.gs/" class="grid-item" style="background-image: url('gifs/stimmings23334ss4gif.gif');">
                 <div class="overlay">
                     <h3>Stimmings 2</h3>
-                    <p>Web GPU based sequel for free in the browser</p>
+                    <p>Web GPU based sequel to Stimmings for free in the browser</p>
                 </div>
             </a>
-            <a href="#" class="grid-item" style="background-image: url('gif6.gif');">
+            <a href="#" class="grid-item" style="background-image: url('gifs/digeneur.gif');">
                 <div class="overlay">
                     <h3>Digital Neuron</h3>
                     <p>Searching numbers to find a novel ML algorithm</p>
                 </div>
             </a>
-            <a href="#" class="grid-item" style="background-image: url('gif7.gif');">
+            <a href="https://github.com/bonisdev/BonisShowcase/blob/main/docs/wp.pdf" class="grid-item" style="background-image: url('gifs/sewp3.gif');">
                 <div class="overlay">
-                    <h3>Project 7</h3>
-                    <p>Interactive hash function demo.</p>
-                </div>
-            </a>
-            <a href="#" class="grid-item" style="background-image: url('gif8.gif');">
-                <div class="overlay">
-                    <h3>Project 8</h3>
-                    <p>Web GPU cryptography benchmark.</p>
+                    <h3>Optimizer Coin</h3>
+                    <p>Proof of work algorithm that solves neural networks to secure a blockchain</p>
                 </div>
             </a>
         </div>
     </main>
+    <script>
+        const starfield = document.querySelector('.starfield');
+        const numStars = 100;
+
+        for (let i = 0; i < numStars; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            const size = 1 + Math.random() * 2; // 1 to 3px
+            const duration = 30 / size; // Larger stars move faster, 10s to 30s
+            const fallDelay = -Math.random() * duration;
+            const twinkleDelay = -Math.random() * 2;
+
+            star.style.left = `${Math.random() * 100}%`;
+            star.style.width = `${size}px`;
+            star.style.height = `${size}px`;
+            star.style.setProperty('--fall-duration', `${duration}s`);
+            star.style.setProperty('--fall-delay', `${fallDelay}s`);
+            star.style.setProperty('--twinkle-delay', `${twinkleDelay}s`);
+
+            starfield.appendChild(star);
+        }
+    </script>
 </body>
 </html>
