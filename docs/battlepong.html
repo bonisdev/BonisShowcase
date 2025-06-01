@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Battle Pong</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        (async () => {
+            // Configurable dimensions and constants
+            const WORLD_WIDTH = 2560;
+            const WORLD_HEIGHT = 1440;
+            const CHUNK_SIZE = 8;
+            const NUM_CHUNKS_X = WORLD_WIDTH / CHUNK_SIZE; // 320
+            const NUM_CHUNKS_Y = WORLD_HEIGHT / CHUNK_SIZE; // 180
+            const NUM_PARTICLES = 500;
+            const NUM_FAMILIES = 18;
+
+            // Canvas setup
+            const canvas = document.getElementById('canvas');
+            canvas.width = WORLD_WIDTH;
+            canvas.height = WORLD_HEIGHT;
+
+            // WebGPU initialization
+            const adapter = await navigator.gpu.requestAdapter();
+            const device = await adapter.requestDevice();
+            const context = canvas.getContext('webgpu');
+            const format = 'bgra8unorm';
+            context.configure({ device, format });
+
+            // Chunk buffer (u32 for family indices)
+            const chunkBufferSize = NUM_CHUNKS_X * NUM_CHUNKS_Y * 4;
+            const chunkBuffer = device.createBuffer({
+                size: chunkBufferSize,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+            });
+
+            // Particle buffer (5 f32 per particle: family, x, y, vx, vy)
+            const particleBufferSize = NUM_PARTICLES * 5 * 4;
+            const particleBuffer = device.createBuffer({
+                size: particleBufferSize,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+            });
+
+            // Color palette buffer (16 colors as vec4<f32>)
+            const colorPaletteSize = 16 * 16; // 16 bytes per color, aligned
+            const colorPaletteBuffer = device.createBuffer({
+                size: colorPaletteSize,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            });
+
+            // Initialize color palette
+            const colors = new Float32Array(16 * 4);
+            for (let i = 0; i < 16; i++) {
+                const hue = (i / 16) * 360;
+                const [r, g, b] = hsvToRgb(hue, 1, 1);
+				if(i === 0 ){
+					colors[i * 4 + 0] = 0;
+					colors[i * 4 + 1] = 0;
+					colors[i * 4 + 2] = 0;
+					colors[i * 4 + 3] = 1.0;
+				}
+				else{
+					colors[i * 4 + 0] = r;
+					colors[i * 4 + 1] = g;
+					colors[i * 4 + 2] = b;
+					colors[i * 4 + 3] = 1.0;
+				}
+            }
+            device.queue.writeBuffer(colorPaletteBuffer, 0, colors);
+
+            function hsvToRgb(h, s, v) {
+                let r, g, b;
+                const i = Math.floor(h / 60);
+                const f = h / 60 - i;
+                const p = v * (1 - s);
+                const q = v * (1 - f * s);
+                const t = v * (1 - (1 - f) * s);
+                switch (i % 6) {
+                    case 0: r = v, g = t, b = p; break;
+                    case 1: r = q, g = v, b = p; break;
+                    case 2: r = p, g = v, b = t; break;
+                    case 3: r = p, g = q, b = v; break;
+                    case 4: r = t, g = p, b = v; break;
+                    case 5: r = v, g = p, b = q; break;
+                }
+                return [r, g, b];
+            }
+
+            // Initialize particles
+            const particleData = new Float32Array(NUM_PARTICLES * 5);
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                const family = Math.floor(i / (NUM_PARTICLES / NUM_FAMILIES));
+                const x = Math.random() * WORLD_WIDTH;
+                const y = Math.random() * WORLD_HEIGHT;
+                const vx = (Math.random() - 0.5) * 2;
+                const vy = (Math.random() - 0.5) * 2;
+                particleData[i * 5 + 0] = family;
+                particleData[i * 5 + 1] = x;
+                particleData[i * 5 + 2] = y;
+                particleData[i * 5 + 3] = vx;
+                particleData[i * 5 + 4] = vy;
+            }
+            device.queue.writeBuffer(particleBuffer, 0, particleData);
+
+            // Initialize chunks based on particle positions
+            const chunkData = new Uint32Array(NUM_CHUNKS_X * NUM_CHUNKS_Y);
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                const x = particleData[i * 5 + 1];
+                const y = particleData[i * 5 + 2];
+                const chunk_x = Math.floor(x / CHUNK_SIZE);
+                const chunk_y = Math.floor(y / CHUNK_SIZE);
+                const chunk_index = chunk_y * NUM_CHUNKS_X + chunk_x;
+                chunkData[chunk_index] = particleData[i * 5 + 0];
+            }
+            device.queue.writeBuffer(chunkBuffer, 0, chunkData);
+
+            // Define bind group layouts
+            const storageBindGroupLayout = device.createBindGroupLayout({
+                entries: [
+                    {
+                        binding: 0,
+                        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                        buffer: { type: 'read-only-storage' },
+                    },
+                ],
+            });
+
+            const colorBindGroupLayout = device.createBindGroupLayout({
+                entries: [
+                    {
+                        binding: 0,
+                        visibility: GPUShaderStage.FRAGMENT,
+                        buffer: { type: 'uniform' },
+                    },
+                ],
+            });
+
+            const computeBindGroupLayout = device.createBindGroupLayout({
+                entries: [
+                    {
+                        binding: 0,
+                        visibility: GPUShaderStage.COMPUTE,
+                        buffer: { type: 'storage' },
+                    },
+                    {
+                        binding: 1,
+                        visibility: GPUShaderStage.COMPUTE,
+                        buffer: { type: 'storage' },
+                    },
+                ],
+            });
+
+            // Define pipeline layouts
+            const renderPipelineLayout = device.createPipelineLayout({
+                bindGroupLayouts: [storageBindGroupLayout, colorBindGroupLayout],
+            });
+
+            const computePipelineLayout = device.createPipelineLayout({
+                bindGroupLayouts: [computeBindGroupLayout],
+            });
+
+            // Compute shader
+            const computeShaderCode = `
+@group(0) @binding(0) var<storage, read_write> particles: array<f32>;
+@group(0) @binding(1) var<storage, read_write> chunks: array<u32>;
+const WORLD_WIDTH: f32 = 2560.0;
+const WORLD_HEIGHT: f32 = 1440.0;
+const CHUNK_SIZE: f32 = 8.0;
+const NUM_CHUNKS_X: u32 = 320u;
+const NUM_CHUNKS_Y: u32 = 180u;
+const NUM_PARTICLES: u32 = ${NUM_PARTICLES};
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+    let index = id.x;
+    if (index >= NUM_PARTICLES) { return; }
+
+    let offset = index * 5u;
+    let family = particles[offset + 0u];
+    let x = particles[offset + 1u];
+    let y = particles[offset + 2u];
+    let vx = particles[offset + 3u];
+    let vy = particles[offset + 4u];
+
+    let new_x = x + vx;
+    let new_y = y + vy;
+    let wrapped_new_x = mdoem(new_x, WORLD_WIDTH);
+    let wrapped_new_y = mdoem(new_y, WORLD_HEIGHT);
+
+    let current_chunk_x = u32(floor(x / CHUNK_SIZE));
+    let current_chunk_y = u32(floor(y / CHUNK_SIZE));
+    let new_chunk_x = u32(floor(wrapped_new_x / CHUNK_SIZE));
+    let new_chunk_y = u32(floor(wrapped_new_y / CHUNK_SIZE));
+
+    let chunk_index = new_chunk_y * NUM_CHUNKS_X + new_chunk_x;
+    let chunk_family = chunks[chunk_index];
+
+    if (chunk_family == u32(family)) {
+        particles[offset + 1u] = wrapped_new_x;
+        particles[offset + 2u] = wrapped_new_y;
+    } else {
+        chunks[chunk_index] = u32(family);
+        if (new_chunk_x != current_chunk_x) {
+            particles[offset + 3u] = -vx;
+            if (vx > 0.0) {
+                particles[offset + 1u] = f32(new_chunk_x) * CHUNK_SIZE;
+            } else {
+                particles[offset + 1u] = f32((new_chunk_x + 1u) % NUM_CHUNKS_X) * CHUNK_SIZE;
+            }
+        } else {
+            particles[offset + 1u] = wrapped_new_x;
+        }
+        if (new_chunk_y != current_chunk_y) {
+            particles[offset + 4u] = -vy;
+            if (vy > 0.0) {
+                particles[offset + 2u] = f32(new_chunk_y) * CHUNK_SIZE;
+            } else {
+                particles[offset + 2u] = f32((new_chunk_y + 1u) % NUM_CHUNKS_Y) * CHUNK_SIZE;
+            }
+        } else {
+            particles[offset + 2u] = wrapped_new_y;
+        }
+    }
+}
+
+fn mdoem(a: f32, b: f32) -> f32 {
+    return a - b * floor(a / b);
+}
+            `;
+            const computeShader = device.createShaderModule({ code: computeShaderCode });
+            const computePipeline = device.createComputePipeline({
+                layout: computePipelineLayout,
+                compute: { module: computeShader, entryPoint: 'main' },
+            });
+
+            // Compute bind group
+            const computeBindGroup = device.createBindGroup({
+                layout: computeBindGroupLayout,
+                entries: [
+                    { binding: 0, resource: { buffer: particleBuffer } },
+                    { binding: 1, resource: { buffer: chunkBuffer } },
+                ],
+            });
+
+            // Chunk render pipeline
+            const chunkVertexShaderCode = `
+@vertex
+fn main(@builtin(vertex_index) vertexIndex: u32) -> @builtin(position) vec4<f32> {
+    let positions = array<vec2<f32>, 4>(
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(${WORLD_WIDTH}.0, 0.0),
+        vec2<f32>(0.0, ${WORLD_HEIGHT}.0),
+        vec2<f32>(${WORLD_WIDTH}.0, ${WORLD_HEIGHT}.0)
+    );
+    let pos = positions[vertexIndex];
+    let clip_pos = vec4<f32>(2.0 * pos.x / ${WORLD_WIDTH}.0 - 1.0, 1.0 - 2.0 * pos.y / ${WORLD_HEIGHT}.0, 0.0, 1.0);
+    return clip_pos;
+}
+            `;
+            const chunkFragmentShaderCode = `
+@group(0) @binding(0) var<storage, read> chunks: array<u32>;
+@group(1) @binding(0) var<uniform> colors: array<vec4<f32>, 16>;
+const CHUNK_SIZE: f32 = ${CHUNK_SIZE}.0;
+const NUM_CHUNKS_X: u32 = ${NUM_CHUNKS_X}u;
+
+@fragment
+fn main(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
+    let chunk_x = floor(fragCoord.x / CHUNK_SIZE);
+    let chunk_y = floor(fragCoord.y / CHUNK_SIZE);
+    let chunk_index = u32(chunk_y) * NUM_CHUNKS_X + u32(chunk_x);
+    let family = chunks[chunk_index];
+    return colors[family];
+}
+            `;
+            const chunkVertexShader = device.createShaderModule({ code: chunkVertexShaderCode });
+            const chunkFragmentShader = device.createShaderModule({ code: chunkFragmentShaderCode });
+            const chunkPipeline = device.createRenderPipeline({
+                layout: renderPipelineLayout,
+                vertex: { module: chunkVertexShader, entryPoint: 'main' },
+                fragment: { module: chunkFragmentShader, entryPoint: 'main', targets: [{ format }] },
+                primitive: { topology: 'triangle-strip' },
+            });
+
+            // Particle render pipeline
+            const particleVertexShaderCode = `
+@group(0) @binding(0) var<storage, read> particles: array<f32>;
+const WORLD_WIDTH: f32 = ${WORLD_WIDTH}.0;
+const WORLD_HEIGHT: f32 = ${WORLD_HEIGHT}.0;
+
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) family: f32,
+}
+
+@vertex
+fn main(@builtin(instance_index) instanceIndex: u32, @builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
+    let offset = instanceIndex * 5u;
+    let x = particles[offset + 1u];
+    let y = particles[offset + 2u];
+    let family = particles[offset + 0u];
+	const sop: f32 = 3f;
+	const hfls: f32 = 1.5f;
+
+    let offsets = array<vec2<f32>, 4>(
+        vec2<f32>(-sop, -sop),
+        vec2<f32>(sop, -sop),
+        vec2<f32>(-sop, sop),
+        vec2<f32>(sop, sop)
+    );
+    let vertex_pos = vec2<f32>(x, y) + offsets[vertexIndex];
+    let clip_pos = vec4<f32>(2.0 * vertex_pos.x / WORLD_WIDTH - 1.0, 1.0 - 2.0 * vertex_pos.y / WORLD_HEIGHT, 0.0, 1.0);
+
+    var output: VertexOutput;
+    output.position = clip_pos;
+    output.family = family;
+    return output;
+}
+            `;
+            const particleFragmentShaderCode = `
+@group(1) @binding(0) var<uniform> colors: array<vec4<f32>, 16>;
+
+@fragment
+fn main(@location(0) family: f32) -> @location(0) vec4<f32> {
+    let family_index = u32(family);
+    let base_color = colors[family_index];
+    return vec4<f32>(1f-base_color.x, 1f-base_color.y, 1f-base_color.z, 1f);//base_color * 0.8; // Darken particle color
+}
+            `;
+            const particleVertexShader = device.createShaderModule({ code: particleVertexShaderCode });
+            const particleFragmentShader = device.createShaderModule({ code: particleFragmentShaderCode });
+            const particlePipeline = device.createRenderPipeline({
+                layout: renderPipelineLayout,
+                vertex: { module: particleVertexShader, entryPoint: 'main' },
+                fragment: { module: particleFragmentShader, entryPoint: 'main', targets: [{ format }] },
+                primitive: { topology: 'triangle-strip' },
+            });
+
+            // Bind groups
+            const chunkBindGroup0 = device.createBindGroup({
+                layout: storageBindGroupLayout,
+                entries: [{ binding: 0, resource: { buffer: chunkBuffer } }],
+            });
+
+            const particleBindGroup0 = device.createBindGroup({
+                layout: storageBindGroupLayout,
+                entries: [{ binding: 0, resource: { buffer: particleBuffer } }],
+            });
+
+            const colorBindGroup = device.createBindGroup({
+                layout: colorBindGroupLayout,
+                entries: [{ binding: 0, resource: { buffer: colorPaletteBuffer } }],
+            });
+
+            // Main loop
+            async function frame() {
+                const commandEncoder = device.createCommandEncoder();
+
+                // Compute pass
+                const computePass = commandEncoder.beginComputePass();
+                computePass.setPipeline(computePipeline);
+                computePass.setBindGroup(0, computeBindGroup);
+                computePass.dispatchWorkgroups(Math.ceil(NUM_PARTICLES / 64));
+                computePass.end();
+
+                // Render pass
+                const renderPass = commandEncoder.beginRenderPass({
+                    colorAttachments: [{
+                        view: context.getCurrentTexture().createView(),
+                        loadOp: 'clear',
+                        storeOp: 'store',
+                        clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                    }],
+                });
+
+                // Draw chunks
+                renderPass.setPipeline(chunkPipeline);
+                renderPass.setBindGroup(0, chunkBindGroup0);
+                renderPass.setBindGroup(1, colorBindGroup);
+                renderPass.draw(4); // 2 triangles via triangle strip
+
+                // Draw particles over chunks
+                renderPass.setPipeline(particlePipeline);
+                renderPass.setBindGroup(0, particleBindGroup0);
+                renderPass.setBindGroup(1, colorBindGroup);
+                renderPass.draw(4, NUM_PARTICLES); // 2 triangles per particle
+
+                renderPass.end();
+                device.queue.submit([commandEncoder.finish()]);
+                requestAnimationFrame(frame);
+            }
+
+            requestAnimationFrame(frame);
+        })();
+    </script>
+</body>
+</html>
